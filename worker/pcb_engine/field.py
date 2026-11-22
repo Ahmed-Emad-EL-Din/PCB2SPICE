@@ -50,8 +50,16 @@ from typing import Any, Iterable
 # ------------------------------------------------------------------ config
 
 # Standard locations, then env override. `which fasthenry` last.
+_VENDOR_FH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "vendor",
+    "fasthenry",
+    "bin",
+    "fasthenry",
+)
 FH_CANDIDATES = (
     os.environ.get("FH_BIN"),
+    _VENDOR_FH,
     "/opt/fasthenry/bin/fasthenry",
     "/usr/local/bin/fasthenry",
     "/usr/bin/fasthenry",

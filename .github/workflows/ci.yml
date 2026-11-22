@@ -32,12 +32,12 @@ jobs:
       - name: Unit tests with solver present
         working-directory: worker
         env:
-          FH_BIN: ${{ github.workspace }}/worker/vendor/fasthenry/fasthenry
+          FH_BIN: ${{ github.workspace }}/worker/vendor/fasthenry/bin/fasthenry
         run: python -m unittest discover -s tests -v
       - name: CLI smoke — health reports Tier B
         working-directory: worker
         env:
-          FH_BIN: ${{ github.workspace }}/worker/vendor/fasthenry/fasthenry
+          FH_BIN: ${{ github.workspace }}/worker/vendor/fasthenry/bin/fasthenry
         run: |
           python - <<'PY'
           import sys; sys.path.insert(0, '.')
