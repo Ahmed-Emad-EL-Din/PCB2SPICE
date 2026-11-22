@@ -75,6 +75,20 @@ def via_inductance(h: float, d: float) -> float:
     return 2e-7 * h * (math.log(4 * h / d) - 1.0)
 
 
+def via_capacitance(h: float, d_pad: float = 0.6e-3, d_antipad: float = 1.1e-3,
+                    er: float = 4.4) -> float:
+    """Via barrel-to-plane capacitance (Howard Johnson's formula, F).
+
+    C_via = 1.41 * er * T * D_1 / (D_2 - D_1) [pF when dims in inches].
+    """
+    if h <= 0 or d_antipad <= d_pad:
+        return 0.0
+    h_in = h / 0.0254
+    d1_in = d_pad / 0.0254
+    d2_in = d_antipad / 0.0254
+    return 1.41e-12 * er * h_in * d1_in / (d2_in - d1_in)
+
+
 def dc_resistance(length: float, w: float, t: float, rho: float = RHO_CU) -> float:
     return rho * length / (w * t)
 
