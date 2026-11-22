@@ -89,6 +89,22 @@ def via_capacitance(h: float, d_pad: float = 0.6e-3, d_antipad: float = 1.1e-3,
     return 1.41e-12 * er * h_in * d1_in / (d2_in - d1_in)
 
 
+def copper_resistivity(temp_c: float = 20.0) -> float:
+    """Temperature-adjusted copper resistivity: ρ(T) = ρ_20 * (1 + α_Cu * (T - 20))."""
+    alpha_cu = 0.00393
+    return RHO_CU * (1.0 + alpha_cu * (temp_c - 20.0))
+
+
+def ipc2152_ampacity(w_m: float, t_m: float, delta_t_c: float = 20.0,
+                     external: bool = True) -> float:
+    """IPC-2152 trace current-carrying capacity (A) for a given ΔT (°C)."""
+    if w_m <= 0 or t_m <= 0 or delta_t_c <= 0:
+        return 0.0
+    area_mils2 = (w_m / 2.54e-5) * (t_m / 2.54e-5)
+    k = 0.048 if external else 0.024
+    return k * (delta_t_c ** 0.44) * (area_mils2 ** 0.725)
+
+
 def dc_resistance(length: float, w: float, t: float, rho: float = RHO_CU) -> float:
     return rho * length / (w * t)
 
