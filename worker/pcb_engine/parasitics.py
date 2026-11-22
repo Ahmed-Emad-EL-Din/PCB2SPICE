@@ -105,6 +105,41 @@ def ipc2152_ampacity(w_m: float, t_m: float, delta_t_c: float = 20.0,
     return k * (delta_t_c ** 0.44) * (area_mils2 ** 0.725)
 
 
+def emi_metrics(
+    l_loop_h: float,
+    c_sw_f: float,
+    f_hz: float,
+    i_sw_a: float = 10.0,
+    dv_dt_v_ns: float = 20.0,
+    loop_area_m2: float = 1e-4,
+    dist_m: float = 3.0,
+) -> dict[str, float]:
+    """Power-electronics EMI metrics: DM radiated field, CM dv/dt current, and ringing."""
+    # Differential-mode radiated E-field (V/m) at distance dist_m:
+    # E_DM = 1.316e-14 * I * A * f^2 / r
+    e_dm_v_m = 1.316e-14 * abs(i_sw_a) * max(loop_area_m2, 0.0) * (f_hz ** 2) / max(dist_m, 0.1)
+    e_dm_dbuv_m = 20.0 * math.log10(max(e_dm_v_m * 1e6, 1e-12))
+
+    # Common-mode displacement current: I_CM = C_sw * (dv/dt)
+    i_cm_a = max(c_sw_f, 0.0) * (abs(dv_dt_v_ns) * 1e9)
+
+    # Commutation loop ringing frequency & characteristic impedance
+    if l_loop_h > 0 and c_sw_f > 0:
+        f_ring_hz = 1.0 / (2.0 * math.pi * math.sqrt(l_loop_h * c_sw_f))
+        z_ring_ohm = math.sqrt(l_loop_h / c_sw_f)
+    else:
+        f_ring_hz = 0.0
+        z_ring_ohm = 0.0
+
+    return {
+        "e_dm_v_m": e_dm_v_m,
+        "e_dm_dbuv_m": e_dm_dbuv_m,
+        "i_cm_a": i_cm_a,
+        "f_ring_hz": f_ring_hz,
+        "z_ring_ohm": z_ring_ohm,
+    }
+
+
 def dc_resistance(length: float, w: float, t: float, rho: float = RHO_CU) -> float:
     return rho * length / (w * t)
 
