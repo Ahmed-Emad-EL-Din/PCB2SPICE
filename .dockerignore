@@ -1,0 +1,13 @@
+# Keep the build context small and reproducible
+.git
+.github
+**/node_modules
+**/.next
+**/__pycache__
+**/*.pyc
+worker/vendor
+.env
+.env.*
+docs/assets
+*.zip
+*.qraw
