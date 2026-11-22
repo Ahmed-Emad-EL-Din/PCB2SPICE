@@ -295,3 +295,58 @@ class TestPipelineTiers(unittest.TestCase):
             self.assertEqual(entry["tier"], "B")
         first = payload["nets"][0]
         self.assertAlmostEqual(first["l_h"], tb["l_h"], places=12)
+
+
+class PowerAndEmiAccuracyTests(unittest.TestCase):
+    def test_huray_roughness_monotonic(self):
+        k_low = parasitics.huray_roughness_factor(1e5)
+        k_ghz = parasitics.huray_roughness_factor(1e9)
+        k_10g = parasitics.huray_roughness_factor(1e10)
+        self.assertGreater(k_low, 1.0)
+        self.assertGreater(k_ghz, k_low)
+        self.assertGreater(k_10g, k_ghz)
+        self.assertLess(k_10g, 3.5)
+
+    def test_djordjevic_sarkar_reproduces_spec_point(self):
+        er_f, td_f = parasitics.djordjevic_sarkar(1e9, er_spec=4.4, tan_d_spec=0.02, f_spec=1e9)
+        self.assertAlmostEqual(er_f, 4.4, places=4)
+        self.assertAlmostEqual(td_f, 0.02, places=4)
+        # Dispersion: er decreases slightly with frequency
+        er_low, _ = parasitics.djordjevic_sarkar(1e6, er_spec=4.4, tan_d_spec=0.02, f_spec=1e9)
+        er_high, _ = parasitics.djordjevic_sarkar(1e10, er_spec=4.4, tan_d_spec=0.02, f_spec=1e9)
+        self.assertGreater(er_low, er_f)
+        self.assertGreater(er_f, er_high)
+
+    def test_via_capacitance_reasonable(self):
+        c_via = parasitics.via_capacitance(1.6e-3, d_pad=0.6e-3, d_antipad=1.1e-3, er=4.4)
+        self.assertTrue(0.2e-12 < c_via < 1.0e-12, c_via)
+
+    def test_copper_resistivity_temp_derating(self):
+        r20 = parasitics.copper_resistivity(20.0)
+        r70 = parasitics.copper_resistivity(70.0)
+        self.assertAlmostEqual(r20, parasitics.RHO_CU, places=14)
+        self.assertAlmostEqual(r70 / r20, 1.0 + 0.00393 * 50.0, places=6)
+
+    def test_ipc2152_ampacity(self):
+        i_ext = parasitics.ipc2152_ampacity(2.0e-3, 35e-6, delta_t_c=20.0, external=True)
+        i_int = parasitics.ipc2152_ampacity(2.0e-3, 35e-6, delta_t_c=20.0, external=False)
+        self.assertAlmostEqual(i_ext / i_int, 2.0, places=6)
+        self.assertTrue(2.0 < i_ext < 10.0, i_ext)
+
+    def test_emi_metrics_physics(self):
+        m = parasitics.emi_metrics(
+            l_loop_h=10e-9,
+            c_sw_f=100e-12,
+            f_hz=1e6,
+            i_sw_a=10.0,
+            dv_dt_v_ns=20.0,
+            loop_area_m2=1e-4,
+            dist_m=3.0,
+        )
+        # I_CM = 100 pF * 20 V/ns = 2.0 A
+        self.assertAlmostEqual(m["i_cm_a"], 2.0, places=6)
+        # f_ring = 1 / (2*pi*sqrt(10 nH * 100 pF)) = 159.155 MHz
+        self.assertAlmostEqual(m["f_ring_hz"] / 1e6, 159.1549, places=2)
+        # Z_ring = sqrt(10 nH / 100 pF) = 10 Ohm
+        self.assertAlmostEqual(m["z_ring_ohm"], 10.0, places=6)
+        self.assertGreater(m["e_dm_dbuv_m"], 0.0)
