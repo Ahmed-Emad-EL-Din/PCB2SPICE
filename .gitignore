@@ -1,0 +1,62 @@
+# .gitignore — PCB Parasitic Engine for QSPICE
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+coverage/
+htmlcov/
+
+# Node / frontend
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+playwright-report/
+test-results/
+
+# App data / uploads / solver artifacts
+uploads/
+artifacts/
+*.qraw
+*.log
+nginx/
+.minio/
+postgres-data/
+redis-data/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+*.pem
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Build outputs
+out/
+build/
+target/
+apps/web/node_modules/
+apps/web/.next/
+apps/web/out/
+worker/**/__pycache__/
+worker/.pytest_cache/
+*.pyc
+
+# Tier B: FastHenry is BUILT, never committed (MIT source, but binaries are
+# platform-specific and heavyweight — the Dockerfile compiles it, or you run
+# scripts/build-fasthenry.sh locally and point FH_BIN at it).
+worker/vendor/fasthenry/fasthenry
+worker/vendor/fasthenry/bin/fasthenry
+worker/vendor/fasthenry/bin/
