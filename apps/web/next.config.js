@@ -4,6 +4,7 @@ module.exports = {
   reactStrictMode: true,
   output: 'standalone', // self-contained Node server for Docker/compose; Vercel ignores this
   async rewrites() {
+    if (process.env.VERCEL) return [];
     return [
       { source: '/api/:path*', destination: `${WORKER_URL}/api/:path*` },
       { source: '/health', destination: `${WORKER_URL}/health` },
