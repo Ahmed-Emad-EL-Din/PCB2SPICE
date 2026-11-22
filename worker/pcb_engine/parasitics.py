@@ -121,6 +121,35 @@ def dielectric_conductance(c_f: float, f_hz: float, tan_d: float = 0.02) -> floa
     return 2.0 * math.pi * f_hz * c_f * tan_d
 
 
+def djordjevic_sarkar(
+    f_hz: float,
+    er_spec: float = 4.4,
+    tan_d_spec: float = 0.02,
+    f_spec: float = 1e9,
+    f1: float = 1e3,
+    f2: float = 1e12,
+) -> tuple[float, float]:
+    """Kramers-Kronig causal wideband dielectric model (Djordjevic-Sarkar).
+
+    Returns (er_real(f), tan_delta(f)) fitted to (er_spec, tan_d_spec) at f_spec.
+    """
+    if f_hz <= 0 or tan_d_spec <= 0:
+        return er_spec, max(tan_d_spec, 0.0)
+    k = math.log10(f2 / f1)
+    # Fit delta_eps from imaginary part at f_spec:
+    # Im(log10((f2 + j*f)/(f1 + j*f))) = (atan(f/f2) - atan(f/f1)) / ln(10)
+    im_spec = (math.atan(f_spec / f2) - math.atan(f_spec / f1)) / math.log(10.0)
+    delta_eps = (-er_spec * tan_d_spec * k) / im_spec if abs(im_spec) > 1e-15 else 0.0
+    re_spec = 0.5 * math.log10((f2 * f2 + f_spec * f_spec) / (f1 * f1 + f_spec * f_spec))
+    eps_inf = er_spec - (delta_eps / k) * re_spec
+
+    re_f = 0.5 * math.log10((f2 * f2 + f_hz * f_hz) / (f1 * f1 + f_hz * f_hz))
+    im_f = (math.atan(f_hz / f2) - math.atan(f_hz / f1)) / math.log(10.0)
+    er_f = eps_inf + (delta_eps / k) * re_f
+    ei_f = -(delta_eps / k) * im_f
+    return er_f, (ei_f / er_f if er_f > 0 else tan_d_spec)
+
+
 def plane_capacitance(er: float, area_m2: float, d_m: float) -> float:
     return er * EPS0 * area_m2 / d_m
 
@@ -304,7 +333,9 @@ def impedance_sweep(r: float, l_h: float, c_f: float, ref_node_c: bool = True,
         xl = 2 * math.pi * f * l_h
         z = complex(r, xl)
         if ref_node_c and c_f > 0:
-            yc = complex(dielectric_conductance(c_f, f, tan_d), 2 * math.pi * f * c_f)
+            er_f, td_f = djordjevic_sarkar(f, tan_d_spec=tan_d)
+            c_eff = c_f * (er_f / 4.4)
+            yc = complex(dielectric_conductance(c_eff, f, td_f), 2 * math.pi * f * c_eff)
             zc = 1.0 / yc
             z = (z * zc) / (z + zc)
         fs.append(f)
