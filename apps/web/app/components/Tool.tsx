@@ -24,8 +24,25 @@ export default function Tool() {
   const [chartNet, setChartNet] = useState<string | null>(null);
   const [refNode, setRefNode] = useState('0');
   const [tier, setTier] = useState<'A' | 'auto' | 'B'>('auto');
+  const [netFilter, setNetFilter] = useState('');
+  const [workerHealth, setWorkerHealth] = useState<{ ok: boolean; tierB: boolean } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<InjectResponse | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/health')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!cancelled && d) {
+          setWorkerHealth({ ok: true, tierB: Boolean(d.solvers?.tier_b_available) });
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setWorkerHealth({ ok: false, tierB: false });
+      });
+    return () => { cancelled = true; };
+  }, []);
 
   // slider maps 0..100 → 1e5 .. 1e9 Hz (log scale)
   const f0HzActual = Math.pow(10, 5 + (f0Slider / 100) * 4);
@@ -119,6 +136,26 @@ export default function Tool() {
             <h2>The workbench</h2>
             <p>Upload your layout, review the extracted R·L·C, inject, download. Your files never leave this machine.</p>
           </div>
+          {workerHealth && (
+            <span
+              className="badge"
+              style={{
+                fontSize: '0.78rem',
+                padding: '4px 10px',
+                borderRadius: '999px',
+                border: '1px solid var(--border, #22384d)',
+                background: workerHealth.ok ? 'rgba(45, 212, 191, 0.08)' : 'rgba(248, 113, 113, 0.08)',
+                color: workerHealth.ok ? '#2dd4bf' : '#f87171',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {workerHealth.ok
+                ? workerHealth.tierB
+                  ? '● Worker online · Tier B (FastHenry2)'
+                  : '● Worker online · Tier A'
+                : '○ Worker offline'}
+            </span>
+          )}
           <div className="stepper" aria-hidden="true">
             <span className={`step${currentStep === 1 ? ' active' : ' done'}`}><span className="n">1</span>Upload</span>
             <span className="step-sep" />
@@ -266,7 +303,9 @@ export default function Tool() {
                       </tr>
                     </thead>
                     <tbody>
-                      {analysis.nets.map((n) => (
+                      {analysis.nets
+                        .filter((n) => !netFilter.trim() || n.name.toLowerCase().includes(netFilter.trim().toLowerCase()))
+                        .map((n) => (
                         <tr key={n.name} className={selected.has(n.name) ? 'selected' : ''} onClick={() => toggleNet(n.name)} aria-selected={selected.has(n.name)}>
                           <td><input type="checkbox" className="row-check" checked={selected.has(n.name)} onChange={() => toggleNet(n.name)} onClick={(e) => e.stopPropagation()} aria-label={`Select net ${n.name}`} /></td>
                           <td className="mono">{n.name}{n.critical && <span className="crit-badge" title={n.critical_reason ?? 'Power-electronics critical net'}>◆ CRITICAL</span>}</td>
