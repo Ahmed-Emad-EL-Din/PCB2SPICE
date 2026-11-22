@@ -80,9 +80,10 @@ def dc_resistance(length: float, w: float, t: float, rho: float = RHO_CU) -> flo
 
 
 def ac_resistance(length: float, w: float, t: float, f_hz: float,
-                  rho: float = RHO_CU) -> float:
-    """Perimeter skin-effect approximation: A_eff = min(w·t, perimeter·δ).
+                  rho: float = RHO_CU, roughness_um: float = 1.0) -> float:
+    """Perimeter skin-effect approximation with Hammerstad-Jensen surface roughness.
 
+    A_eff = min(w·t, perimeter·δ), scaled by K_sr = 1 + (2/π)·atan(1.4·(R_q/δ)²).
     Proximity effect is NOT included (needs PEEC); treat result as ±20 %
     for parallel high-di/dt runs — the report says so explicitly.
     """
@@ -91,7 +92,19 @@ def ac_resistance(length: float, w: float, t: float, f_hz: float,
         return dc_resistance(length, w, t, rho)
     perimeter = 2.0 * (w + t)
     area = min(w * t, perimeter * delta)
-    return rho * length / area
+    r_smooth = rho * length / area
+    if roughness_um > 0:
+        rq = roughness_um * 1e-6
+        k_sr = 1.0 + (2.0 / math.pi) * math.atan(1.4 * (rq / delta) ** 2)
+        return r_smooth * k_sr
+    return r_smooth
+
+
+def dielectric_conductance(c_f: float, f_hz: float, tan_d: float = 0.02) -> float:
+    """Parallel dielectric loss conductance G_d = ω · C · tan(δ) (S)."""
+    if c_f <= 0 or f_hz <= 0 or tan_d <= 0:
+        return 0.0
+    return 2.0 * math.pi * f_hz * c_f * tan_d
 
 
 def plane_capacitance(er: float, area_m2: float, d_m: float) -> float:
@@ -268,15 +281,17 @@ def analyze_net(name: str, segments: list[dict], via_count: int, via_h: float,
 
 
 def impedance_sweep(r: float, l_h: float, c_f: float, ref_node_c: bool = True,
-                    n: int = 90, fmin: float = 1e2, fmax: float = 1e9) -> dict:
-    """log-spaced |Z(f)| of the injected R–L(+C to ref) network (for the UI chart)."""
+                    n: int = 90, fmin: float = 1e2, fmax: float = 1e9,
+                    tan_d: float = 0.02) -> dict:
+    """log-spaced |Z(f)| of the injected R–L(+C//G_d to ref) network (for the UI chart)."""
     fs, zs = [], []
     for i in range(n):
         f = fmin * (fmax / fmin) ** (i / (n - 1))
         xl = 2 * math.pi * f * l_h
         z = complex(r, xl)
         if ref_node_c and c_f > 0:
-            zc = complex(0, -1.0 / (2 * math.pi * f * c_f))
+            yc = complex(dielectric_conductance(c_f, f, tan_d), 2 * math.pi * f * c_f)
+            zc = 1.0 / yc
             z = (z * zc) / (z + zc)
         fs.append(f)
         zs.append(abs(z))
